@@ -1,34 +1,74 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
-
-## Getting Started
-
-First, run the development server:
+# How to use [Workbox](https://developers.google.com/web/tools/workbox/) in your Next.js app
 
 ```bash
-npm run dev
-# or
-yarn dev
+npx create-next-app my-app
+
+cd my-app
+
+npm install -D workbox-webpack-plugin
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Add `GenerateSW` to your webpack config:
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+```diff
+diff --git a/next.config.js b/next.config.js
+index 0d60710..c9691ff 100644
+--- a/next.config.js
++++ b/next.config.js
+@@ -1,3 +1,20 @@
++const { GenerateSW } = require('workbox-webpack-plugin');
++
+ module.exports = {
+   reactStrictMode: true,
++  webpack(config, options) {
++    if (options.isServer || options.isDev) {
++      return config;
++    }
++
++    config.plugins.push(
++      new GenerateSW({
++        // Using the same static folder
++        swDest: 'static/service-worker.js',
++        // Include only static files
++        include: [/.*static.*/i]
++      })
++    );
++
++    return config;
++  },
+ }
+```
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+Register the service worker in your `_app`
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+```diff
+diff --git a/pages/_app.js b/pages/_app.js
+index 1e1cec9..88f15c7 100644
+--- a/pages/_app.js
++++ b/pages/_app.js
+@@ -1,6 +1,25 @@
++import { useEffect } from 'react'
+ import '../styles/globals.css'
+ 
+ function MyApp({ Component, pageProps }) {
++  useEffect(() => {
++    if ('serviceWorker' in navigator) {
++      window.addEventListener('load', function () {
++        navigator.serviceWorker.register('/_next/static/service-worker.js').then(
++          function (registration) {
++            console.log(
++              'Service Worker registration successful with scope: ',
++              registration.scope
++            )
++          },
++          function (err) {
++            console.log('Service Worker registration failed: ', err)
++          }
++        )
++      })
++    }
++  }, [])
++
+   return <Component {...pageProps} />
+ }
+```
